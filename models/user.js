@@ -31,6 +31,11 @@ const userSchema = new mongoose.Schema({
         values: ['instructor', 'student'],
       }
     }
+},{ 
+  timestamps: {
+    createdAt: true,
+    updatedAt: false
+  }
 });
 
 module.exports = mongoose.model('User', userSchema);
