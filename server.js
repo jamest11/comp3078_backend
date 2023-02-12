@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const authRoutes = require('./routes/auth');
+const instructorRoutes = require('./routes/instructor');
 
 const app = express();
 app.use(express.json());
@@ -19,6 +20,7 @@ mongoose.connect(process.env.DB_URI, {
 });
 
 app.use('/auth', authRoutes);
+app.use('/instructor', instructorRoutes);
 
 app.listen(process.env.PORT, () => {
     console.log(`Server is listening on port ${process.env.PORT}`);
