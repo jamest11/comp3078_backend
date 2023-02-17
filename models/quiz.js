@@ -10,6 +10,41 @@ const quizSchema = new mongoose.Schema({
     type: Schema.Types.ObjectId,
     ref: 'User'
   },
+  timeLimit: {
+    type: Number,
+    required: true
+  },
+  questions: [
+    {
+      q: {
+        type: String,
+        required: true
+      },
+      r1: {
+        type: String,
+        required: true
+      },
+      r2: {
+        type: String,
+        required: true
+      },
+      r3: {
+        type: String,
+        required: true
+      },
+      r4: {
+        type: String,
+        required: true
+      },
+      a: {
+        type: String,
+        required: true,
+        enum: {
+          values: ['r1', 'r2', 'r3', 'r4']
+        }
+      }
+    }
+  ]
 });
 
 module.exports = mongoose.model('Quiz', quizSchema);

@@ -10,10 +10,6 @@ const scheduledQuizSchema = new mongoose.Schema({
     type: Schema.Types.ObjectId,
     ref: 'Quiz'
   },
-  student: {
-    type: Schema.Types.ObjectId,
-    ref: 'User'
-  },
   class: {
     type: Schema.Types.ObjectId,
     ref: 'Class'
