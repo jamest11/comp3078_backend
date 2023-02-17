@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
 const instructorRoutes = require('./routes/instructor');
@@ -18,6 +19,10 @@ mongoose.connect(process.env.DB_URI, {
     console.log('Could not connect to the database. Exiting now...', err);
     process.exit();
 });
+
+app.use(cors({
+    origin: '*'
+}));
 
 app.use('/auth', authRoutes);
 app.use('/instructor', instructorRoutes);
