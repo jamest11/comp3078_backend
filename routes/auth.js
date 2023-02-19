@@ -31,7 +31,7 @@ routes.post('/login', async (req, res) => {
         const { email, password } = req.body;
         let user = null;
 
-        if (!password || !(username || password)) {
+        if (!password || !(email || password)) {
             return res.status(400).json({ errorCode: 101, message: 'Email and password required'});
         } else {
             user = await User.findOne({ email });
@@ -43,7 +43,12 @@ routes.post('/login', async (req, res) => {
             const token =  jwt.sign({ id: user._id, userType: user.userType }, process.env.TOKEN_KEY, { expiresIn: '48h', });
     
             const response = {
-                jwt_token: token
+                jwt_token: token,
+                user: {
+                    id: user._id,
+                    userType: user.userType,
+                    email: user.email
+                }
             };
 
             return res.status(200).json(response);

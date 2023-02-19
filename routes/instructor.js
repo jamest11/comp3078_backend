@@ -1,5 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const expressJwt = require('express-jwt');
+const jwt = require('jsonwebtoken');
 
 const User = require('../models/user');
 const Class = require('../models/class');
@@ -7,6 +9,13 @@ const Quiz = require('../models/quiz');
 const ScheduledQuiz = require('../models/scheduled-quiz');
 
 const routes = express.Router()
+
+//routes.use(expressJwt.expressjwt({ secret: process.env.TOKEN_KEY, algorithms: ['HS256'] }));
+
+const decodeToken = (headers) => {
+  const token = headers.authorization.split(' ')[1];
+  return jwt.verify(token, process.env.TOKEN_KEY);
+};
 
 routes.post('/create-class', async (req, res) => {
   try {
@@ -43,7 +52,9 @@ routes.post('/update-class', async (req, res) => {
 
 routes.post('/create-quiz', async(req, res) => {
   try {
-    const quiz = new Quiz(req.body);
+    const instructor = decodeToken(req.headers);
+
+    const quiz = new Quiz({ ...req.body, instructor: mongoose.Types.ObjectId(instructor.id) });
 
     await quiz.save();
 
@@ -56,7 +67,9 @@ routes.post('/create-quiz', async(req, res) => {
 
 routes.post('/schedule-quiz', async (req, res) => {
   try {
-    const scheduledQuiz = new ScheduledQuiz(req.body);
+    const instructor = decodeToken(req.headers);
+
+    const scheduledQuiz = new ScheduledQuiz({ ...req.body, instructor: mongoose.Types.ObjectId(instructor.id) });
 
     await scheduledQuiz.save().then((sq) => {
       //sq.populate('class')
@@ -71,10 +84,13 @@ routes.post('/schedule-quiz', async (req, res) => {
 
 routes.get('/scheduled-quizzes', async (req, res) => {
   try {
+    const instructor = decodeToken(req.headers);
+
     const scheduledQuizzes = await ScheduledQuiz
       .find()
-      .populate('class', ['title', 'description'])
-      .populate('quiz', 'title');
+      .populate('class', ['title', 'description'], { instructor: { $eq: instructor.id }})
+      .populate('quiz', 'title')
+      .then((sqs) => sqs.filter((sq) => sq.class !== null));
 
     return res.status(200).json(scheduledQuizzes);
   }  catch(err) {
@@ -85,7 +101,9 @@ routes.get('/scheduled-quizzes', async (req, res) => {
 
 routes.get('/quizzes', async (req, res) => {
   try {
-    const quizzes = await Quiz.find();
+    const instructor = decodeToken(req.headers);
+
+    const quizzes = await Quiz.find({ instructor: instructor.id });
 
     return res.status(200).json(quizzes);
   } catch(err) {
@@ -94,4 +112,4 @@ routes.get('/quizzes', async (req, res) => {
   }
 });
 
-module.exports = routes
+module.exports = routes;
