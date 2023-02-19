@@ -8,12 +8,27 @@ const scheduledQuizSchema = new mongoose.Schema({
   },
   quiz: {
     type: Schema.Types.ObjectId,
-    ref: 'Quiz'
+    ref: 'Quiz',
+    required: true
   },
   class: {
     type: Schema.Types.ObjectId,
-    ref: 'Class'
-  }
+    ref: 'Class',
+    required: true
+  },
+  grades: [
+    {
+      student: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      grade: {
+        type: Number,
+        required: true
+      }
+    }
+  ]
 });
 
 module.exports = mongoose.model('ScheduledQuiz', scheduledQuizSchema);

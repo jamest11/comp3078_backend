@@ -33,7 +33,6 @@ const classSchema = new mongoose.Schema({
     ref: 'User',
     validate: {
       validator: async (v) => {
-        console.log('STUDENT VALIDATOR');
         const user = await User.findById(v);
         
         if(!user || user.userType !== 'student'){
