@@ -4,6 +4,7 @@ const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
 const instructorRoutes = require('./routes/instructor');
+const studentRoutes = require('./routes/student');
 
 const app = express();
 app.use(express.json());
@@ -26,6 +27,7 @@ app.use(cors({
 
 app.use('/auth', authRoutes);
 app.use('/instructor', instructorRoutes);
+app.use('/student', studentRoutes);
 
 app.listen(process.env.PORT, () => {
     console.log(`Server is listening on port ${process.env.PORT}`);
