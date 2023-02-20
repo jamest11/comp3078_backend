@@ -19,10 +19,12 @@ const decodeToken = (headers) => {
 
 routes.post('/create-class', async (req, res) => {
   try {
+    const instructor = decodeToken(req.headers);
+
     const quizClass = new Class({ 
       title: req.body.title, 
       description: req.body.description, 
-      instructor: mongoose.Types.ObjectId(req.body.instructor) 
+      instructor: instructor.id
     });
     
     await quizClass.save();
@@ -41,7 +43,7 @@ routes.post('/update-class', async (req, res) => {
 
     await Class.updateOne({ '_id': classId }, { '$addToSet': { 'students': studentId } },  { runValidators: true })
 
-    const quizClass = await Class.findOne(classId);
+    const quizClass = await Class.findById(classId);
 
     return res.status(200).json(quizClass);
   } catch (err) {
@@ -54,7 +56,7 @@ routes.post('/create-quiz', async(req, res) => {
   try {
     const instructor = decodeToken(req.headers);
 
-    const quiz = new Quiz({ ...req.body, instructor: mongoose.Types.ObjectId(instructor.id) });
+    const quiz = new Quiz({ ...req.body, instructor: instructor.id });
 
     await quiz.save();
 
@@ -69,7 +71,7 @@ routes.post('/schedule-quiz', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
 
-    const scheduledQuiz = new ScheduledQuiz({ ...req.body, instructor: mongoose.Types.ObjectId(instructor.id) });
+    const scheduledQuiz = new ScheduledQuiz({ ...req.body, instructor: instructor.id });
 
     await scheduledQuiz.save().then((sq) => {
       //sq.populate('class')
@@ -106,6 +108,19 @@ routes.get('/quizzes', async (req, res) => {
     const quizzes = await Quiz.find({ instructor: instructor.id });
 
     return res.status(200).json(quizzes);
+  } catch(err) {
+    console.log(err);
+    return res.status(500).json(err);
+  }
+});
+
+routes.get('/classes', async (req, res) => {
+  try {
+    const instructor = decodeToken(req.headers);
+
+    const classes = await Class.find({ instructor: instructor.id });
+
+    return res.status(200).json(classes);
   } catch(err) {
     console.log(err);
     return res.status(500).json(err);
