@@ -26,6 +26,10 @@ const scheduledQuizSchema = new mongoose.Schema({
       grade: {
         type: Number,
         required: true
+      },
+      date: {
+        type: Date,
+        default: Date.now()
       }
     }
   ]

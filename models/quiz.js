@@ -8,7 +8,18 @@ const quizSchema = new mongoose.Schema({
   },
   instructor: {
     type: Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    validate: {
+      validator: async (v) => {
+        const user = await User.findById(v);
+
+        if(!user || user.userType !== 'instructor'){
+          return false;
+        }
+        return true;
+      },
+      message: 'Invalid user type'
+    }
   },
   timeLimit: {
     type: Number,
