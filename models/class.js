@@ -23,6 +23,7 @@ const classSchema = new mongoose.Schema({
         if(!user || user.userType !== 'instructor'){
           return false;
         }
+
         return true;
       },
       message: 'Invalid user type'
