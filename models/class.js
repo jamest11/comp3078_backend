@@ -10,7 +10,6 @@ const classSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true
   },
   instructor: {
     type: Schema.Types.ObjectId,
