@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const expressJwt = require('express-jwt');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const ObjectId = require('mongoose').Types.ObjectId;
 
 const User = require('../models/user');
 const Class = require('../models/class');
@@ -18,6 +19,18 @@ const decodeToken = (headers) => {
   return jwt.verify(token, process.env.TOKEN_KEY);
 };
 
+routes.get('/test', async (req, res) => {
+  try {
+    const emails = ['jamest2@gmail.com', 'jsmith@gmail.com', 'test@example.com'];
+
+    const students = await User.find({ 'email': { '$in': emails}, userType: 'student' }, '_id')
+
+    return res.status(200).json(students);
+  } catch (err) {
+    return res.status(500).send(err);
+  }
+});
+
 routes.post('/create-class', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
@@ -28,21 +41,36 @@ routes.post('/create-class', async (req, res) => {
 
     return res.status(201).json(quizClass);
   } catch (err) {
-      return res.status(500).send(err);
+    return res.status(500).send(err);
   }
 });
 
-routes.post('/update-class', async (req, res) => {
+routes.patch('/update-class', async (req, res) => {
   try {
+    const classId = ObjectId(req.body.class)
 
-    const studentId = mongoose.Types.ObjectId(req.body.student);
-    const classId = mongoose.Types.ObjectId(req.body.class)
+    const students = await User.find({ 'email': { '$in': req.body.students}, userType: 'student' }, '_id')
+    const studentIds = [];
+    for(let student of students) {
+      studentIds.push(student._id);
+    }
 
-    await Class.updateOne({ '_id': classId }, { '$addToSet': { 'students': studentId } },  { runValidators: true })
+    const oldClass = await Class.findByIdAndUpdate(classId, { 
+        '$addToSet': { 
+          'students': { 
+            '$each': studentIds 
+      }}}
+    );
 
-    const quizClass = await Class.findById(classId);
+    const updatedClass = await Class.findById(classId);
 
-    return res.status(200).json(quizClass);
+    const response = {
+      count: updatedClass.students.length - oldClass.students.length,
+      class: updatedClass.title,
+      id: updatedClass._id
+    };
+
+    return res.status(200).json(response);
   } catch (err) {
     console.log(err);
     return res.status(500).json(err);

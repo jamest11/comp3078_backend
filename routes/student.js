@@ -32,7 +32,7 @@ routes.get('/grades', async (req, res) => {
                               as: 'grade',
                               cond: {
                                 $eq: ['$$grade.student', studentId] }}}}}, 
-                      { $unset: ['grades._id','_id']}];
+                        { $unset: ['grades._id','_id']}];
 
     const grades = await ScheduledQuiz.aggregate(gradeQuery);
     
