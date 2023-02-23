@@ -143,7 +143,7 @@ routes.get('/classes', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
 
-    const classes = await Class.find({ instructor: instructor.id });
+    const classes = await Class.find({ instructor: instructor.id }).sort('title');
 
     return res.status(200).json(classes);
   } catch(err) {
@@ -165,7 +165,7 @@ routes.get('/quiz-grades', async (req, res) => {
     const grades = [];
 
     for(let quiz of scheduledQuizzes) {
-      if(quiz.grades.length > 0) {
+      //if(quiz.grades.length > 0) {
         let average = 0;
         for(let grade of quiz.grades) {
           average += grade.grade;
@@ -184,7 +184,7 @@ routes.get('/quiz-grades', async (req, res) => {
           average: average.toFixed(1),
           completed: quiz.grades.length
         });
-      }
+      //}
     }
 
     return res.status(200).json(grades);
@@ -208,7 +208,7 @@ routes.get('/class-grades', async (req, res) => {
 
     for(let quizClass of classes) {
       const classGrade = {
-        id: quizClass.id,
+        _id: quizClass.id,
         class: quizClass.title
       }
 
@@ -221,12 +221,13 @@ routes.get('/class-grades', async (req, res) => {
           total += parseFloat(grade.average);
         }
       }
+
       let average = 0;
 
       if(count > 0 && total > 0) {
         average = total / count;
-      } 
-
+      }
+      
       classGrade.count = count;
       classGrade.average = average;
       classGrades.push(classGrade);

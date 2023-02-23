@@ -34,7 +34,7 @@ routes.get('/grades', async (req, res) => {
                                 $eq: ['$$grade.student', studentId] }}}}}, 
                         { $unset: ['grades._id','_id']}];
 
-    const grades = await ScheduledQuiz.aggregate(gradeQuery);
+    const grades = await ScheduledQuiz.aggregate(gradeQuery).sort('-grades.date');
     
     await Quiz.populate(grades, { path: 'quiz', select: 'title -_id' })
     await Class.populate(grades, { path: 'class', select: 'title -_id' })
@@ -64,7 +64,8 @@ routes.get('/quizzes', async (req, res) => {
     const quizzes = await ScheduledQuiz
       .find({ 'grades.student': { $ne: student.id }}, '-__v -grades')
       .populate('class', 'title -_id', { students: { $in: student.id }})
-      .populate('quiz', 'title timeLimit -_id')
+      .populate('quiz', '-questions.a -_id')
+      .sort('date')
       .then((qs) => qs.filter((q) => q.class !== null));
 
     return res.status(200).json(quizzes);
