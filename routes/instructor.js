@@ -130,7 +130,7 @@ routes.get('/quizzes', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
 
-    const quizzes = await Quiz.find({ instructor: instructor.id });
+    const quizzes = await Quiz.find({ instructor: instructor.id }).sort('title');
 
     return res.status(200).json(quizzes);
   } catch(err) {
@@ -158,13 +158,15 @@ routes.get('/quiz-grades', async (req, res) => {
 
     const scheduledQuizzes = await ScheduledQuiz
       .find()
-      .populate('class', ['title', 'description'], { instructor: { $eq: instructor.id }})
+      .populate('class', 'title students', { instructor: { $eq: instructor.id }})
       .populate('quiz', 'title')
       .then((sqs) => sqs.filter((sq) => sq.class !== null));
 
     const grades = [];
 
     for(let quiz of scheduledQuizzes) {
+        if(quiz.class.students.length === 0) continue;
+
       //if(quiz.grades.length > 0) {
         let average = 0;
         for(let grade of quiz.grades) {
@@ -181,8 +183,9 @@ routes.get('/quiz-grades', async (req, res) => {
           class_id: quiz.class._id,
           quiz: quiz.quiz.title,
           dueDate: quiz.date,
-          average: average.toFixed(1),
-          completed: quiz.grades.length
+          average: parseFloat(average.toFixed(1)),
+          completed: quiz.grades.length,
+          total: quiz.class.students.length
         });
       //}
     }
@@ -200,9 +203,10 @@ routes.get('/class-grades', async (req, res) => {
 
     const classes = await Class.find({ instructor: instructor.id }, '_id, title')
 
-    const quizGrades = await axios.get('http://localhost:4000/instructor/quiz-grades', { 
+    let quizGrades = await axios.get('http://localhost:4000/instructor/quiz-grades', { 
       headers: { authorization: req.headers.authorization },
     });
+    quizGrades = quizGrades.data;
 
     const classGrades = []
 
@@ -212,23 +216,25 @@ routes.get('/class-grades', async (req, res) => {
         class: quizClass.title
       }
 
-      let count = 0;
+      let gradeCount = -1;
       let total = 0;
 
-      for(let grade of quizGrades.data) {
-        if(grade.class_id == quizClass._id) {
-          count += 1;
-          total += parseFloat(grade.average);
+      for(let grade of quizGrades) {
+        if(grade.class_id == quizClass._id && grade.completed > 0) {
+          if(gradeCount === -1) gradeCount = 0;
+
+          gradeCount += 1;
+          total += grade.average;
         }
       }
 
       let average = 0;
 
-      if(count > 0 && total > 0) {
-        average = total / count;
+      if(gradeCount > 0 && total > 0) {
+        average = total / gradeCount;
       }
-      
-      classGrade.count = count;
+
+      classGrade.count = gradeCount;
       classGrade.average = average;
       classGrades.push(classGrade);
     }
