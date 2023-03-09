@@ -22,17 +22,18 @@ routes.get('/grades', async (req, res) => {
 
     const studentId = mongoose.Types.ObjectId(student.id);
 
-    const gradeQuery = [{ $match: { grades: { $elemMatch: { student: { $eq: studentId }}}}}, 
-                        { $project: { 
-                          quiz: 1, 
-                          class: 1, 
-                          grades: {
-                            $filter: {
-                              input: '$grades',
-                              as: 'grade',
-                              cond: {
-                                $eq: ['$$grade.student', studentId] }}}}}, 
-                        { $unset: ['grades._id','_id']}];
+    const gradeQuery = [
+      { $match: { grades: { $elemMatch: { student: { $eq: studentId }}}}}, 
+      { $project: { 
+        quiz: 1, 
+        class: 1, 
+        grades: {
+          $filter: {
+            input: '$grades',
+            as: 'grade',
+            cond: {
+              $eq: ['$$grade.student', studentId] }}}}}, 
+      { $unset: ['grades._id','_id']}];
 
     const grades = await ScheduledQuiz.aggregate(gradeQuery).sort('-grades.date');
     
