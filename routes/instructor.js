@@ -227,8 +227,7 @@ routes.get('/class-grades', async (req, res) => {
             as: 'quiz',
             in: { $avg: '$$quiz.grades.grade' }
       }}}},
-      {
-        $addFields: { count: { 
+      { $addFields: { count: { 
           $filter: {
             input: '$average',
             as: 'val',
