@@ -16,6 +16,10 @@ const scheduledQuizSchema = new mongoose.Schema({
     ref: 'Class',
     required: true
   },
+  complete: {
+    type: Boolean,
+    default: false
+  },
   grades: [
     {
       student: {

@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
+const scheduledFunctions = require('./scheduledFunctions');
 const authRoutes = require('./routes/auth');
 const instructorRoutes = require('./routes/instructor');
 const studentRoutes = require('./routes/student');
@@ -28,6 +29,8 @@ app.use(cors({
 app.use('/auth', authRoutes);
 app.use('/instructor', instructorRoutes);
 app.use('/student', studentRoutes);
+
+scheduledFunctions.initScheduledTasks();
 
 app.listen(process.env.PORT, () => {
     console.log(`Server is listening on port ${process.env.PORT}`);

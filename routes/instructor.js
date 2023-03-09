@@ -19,18 +19,6 @@ const decodeToken = (headers) => {
   return jwt.verify(token, process.env.TOKEN_KEY);
 };
 
-routes.get('/test', async (req, res) => {
-  try {
-    const emails = ['jamest2@gmail.com', 'jsmith@gmail.com', 'test@example.com'];
-
-    const students = await User.find({ 'email': { '$in': emails}, userType: 'student' }, '_id')
-
-    return res.status(200).json(students);
-  } catch (err) {
-    return res.status(500).send(err);
-  }
-});
-
 routes.post('/create-class', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
@@ -110,14 +98,27 @@ routes.post('/schedule-quiz', async (req, res) => {
 });
 
 routes.get('/scheduled-quizzes', async (req, res) => {
+  let filter = {};
+
+  if(req.query.filter) {
+    if(req.query.filter === 'complete') {
+      filter = { complete: true }
+    }
+    else if(req.query.filter === 'incomplete') {
+      filter = { complete: false }
+    }
+  }
+
   try {
     const instructor = decodeToken(req.headers);
 
     const scheduledQuizzes = await ScheduledQuiz
-      .find()
-      .populate('class', ['title', 'description'], { instructor: { $eq: instructor.id }})
+      .find(filter)
+      .populate('class', 'title description', { instructor: { $eq: instructor.id }})
       .populate('quiz', 'title')
       .then((sqs) => sqs.filter((sq) => sq.class !== null));
+
+    console.log(scheduledQuizzes);
 
     return res.status(200).json(scheduledQuizzes);
   }  catch(err) {
@@ -155,11 +156,12 @@ routes.get('/classes', async (req, res) => {
 routes.get('/quiz-grades', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
-
+    
     const scheduledQuizzes = await ScheduledQuiz
       .find()
       .populate('class', 'title students', { instructor: { $eq: instructor.id }})
       .populate('quiz', 'title')
+      .sort('date')
       .then((sqs) => sqs.filter((sq) => sq.class !== null));
 
     const grades = [];
@@ -185,7 +187,8 @@ routes.get('/quiz-grades', async (req, res) => {
           dueDate: quiz.date,
           average: parseFloat(average.toFixed(1)),
           completed: quiz.grades.length,
-          total: quiz.class.students.length
+          total: quiz.class.students.length,
+          complete: quiz.complete
         });
       //}
     }
