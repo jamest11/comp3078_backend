@@ -37,21 +37,19 @@ routes.patch('/update-class', async (req, res) => {
   try {
     const classId = ObjectId(req.body.class)
 
-    const students = await User.find({ 'email': { '$in': req.body.students}, userType: 'student' }, '_id')
-    const studentIds = [];
-    for(let student of students) {
-      studentIds.push(student._id);
-    }
+    const students = await User.distinct(
+      '_id', 
+      { email: { $in: req.body.students}, userType: 'student' });
 
     const oldClass = await Class.findByIdAndUpdate(classId, { 
-        '$addToSet': { 
-          'students': { 
-            '$each': studentIds 
+        $addToSet: { 
+          students: { 
+            $each: students
       }}}
     );
 
     const updatedClass = await Class.findById(classId);
-
+    
     const response = {
       count: updatedClass.students.length - oldClass.students.length,
       class: updatedClass.title,
@@ -86,9 +84,7 @@ routes.post('/schedule-quiz', async (req, res) => {
 
     const scheduledQuiz = new ScheduledQuiz({ ...req.body, instructor: instructor.id });
 
-    await scheduledQuiz.save().then((sq) => {
-      //sq.populate('class')
-    });
+    await scheduledQuiz.save();
 
     return res.status(200).json(scheduledQuiz);
   } catch(err) {
@@ -99,26 +95,40 @@ routes.post('/schedule-quiz', async (req, res) => {
 
 routes.get('/scheduled-quizzes', async (req, res) => {
   let filter = {};
+  const filterOptions = ['complete', 'incomplete']
 
-  if(req.query.filter) {
-    if(req.query.filter === 'complete') {
-      filter = { complete: true }
-    }
-    else if(req.query.filter === 'incomplete') {
-      filter = { complete: false }
-    }
+  if(req.query.filter && filterOptions.includes(req.query.filter)) {
+    filter = req.query.filter === 'complete' ? {complete: true } : { complete: false }
   }
 
   try {
     const instructor = decodeToken(req.headers);
 
-    const scheduledQuizzes = await ScheduledQuiz
-      .find(filter)
-      .populate('class', 'title description', { instructor: { $eq: instructor.id }})
-      .populate('quiz', 'title')
-      .then((sqs) => sqs.filter((sq) => sq.class !== null));
-
-    console.log(scheduledQuizzes);
+    const scheduledQuizzes = await ScheduledQuiz.aggregate([
+      { $lookup: {
+        from: 'quizzes',
+        localField: 'quiz',
+        foreignField: '_id',
+        as: 'quizTitle',
+        pipeline: [{
+          $match: { instructor: ObjectId(instructor.id) }
+        }]
+      }}, { $lookup: {
+        from: 'classes',
+        localField: 'class',
+        foreignField: '_id',
+        as: 'classTitle'
+      }}, 
+      { $unwind: '$quizTitle'}, 
+      { $unwind: '$classTitle'},
+      { $match: filter},
+      { $project: {
+        classTitle: '$classTitle.title',
+        quizTitle: '$quizTitle.title',
+        timeLimit: 1,
+        complete: 1,
+        date: 1
+    }}]);
 
     return res.status(200).json(scheduledQuizzes);
   }  catch(err) {
@@ -131,7 +141,11 @@ routes.get('/quizzes', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
 
-    const quizzes = await Quiz.find({ instructor: instructor.id }).sort('title');
+    const quizzes = await Quiz.aggregate([
+      { $match: { instructor: ObjectId(instructor.id)} },
+      { $addFields: { questionCount: { $size: '$questions' }}}, 
+      { $unset: 'questions' }
+    ])
 
     return res.status(200).json(quizzes);
   } catch(err) {
@@ -157,41 +171,35 @@ routes.get('/quiz-grades', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
     
-    const scheduledQuizzes = await ScheduledQuiz
-      .find()
-      .populate('class', 'title students', { instructor: { $eq: instructor.id }})
-      .populate('quiz', 'title')
-      .sort('date')
-      .then((sqs) => sqs.filter((sq) => sq.class !== null));
-
-    const grades = [];
-
-    for(let quiz of scheduledQuizzes) {
-        if(quiz.class.students.length === 0) continue;
-
-      //if(quiz.grades.length > 0) {
-        let average = 0;
-        for(let grade of quiz.grades) {
-          average += grade.grade;
-        }
-
-        if(average > 0){
-          average /= quiz.grades.length;
-        }
-
-        grades.push({
-          id: quiz._id,
-          class: quiz.class.title,
-          class_id: quiz.class._id,
-          quiz: quiz.quiz.title,
-          dueDate: quiz.date,
-          average: parseFloat(average.toFixed(1)),
-          completed: quiz.grades.length,
-          total: quiz.class.students.length,
-          complete: quiz.complete
-        });
-      //}
-    }
+    const grades = await ScheduledQuiz.aggregate([
+      { $lookup: {
+        from: 'quizzes',
+        localField: 'quiz',
+        foreignField: '_id',
+        as: 'quizTitle',
+        pipeline: [{
+          $match: { instructor: ObjectId(instructor.id) }
+        }]
+      }}, { $lookup: {
+        from: 'classes',
+        localField: 'class',
+        foreignField: '_id',
+        as: 'classTitle'
+      }}, 
+      { $unwind: '$quizTitle'}, 
+      { $unwind: '$classTitle'}, 
+      { $addFields: {
+        average: { $avg: '$grades.grade' }, 
+        completed: { $size: '$grades' }
+      }}, { $project: {
+        classTitle: '$classTitle.title',
+        quizTitle: '$quizTitle.title',
+        timeLimit: 1,
+        complete: 1,
+        average: 1,
+        completed: 1,
+        date: 1
+    }}]);
 
     return res.status(200).json(grades);
   } catch(err) {
@@ -204,43 +212,33 @@ routes.get('/class-grades', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
 
-    const classes = await Class.find({ instructor: instructor.id }, '_id, title')
-
-    let quizGrades = await axios.get('http://localhost:4000/instructor/quiz-grades', { 
-      headers: { authorization: req.headers.authorization },
-    });
-    quizGrades = quizGrades.data;
-
-    const classGrades = []
-
-    for(let quizClass of classes) {
-      const classGrade = {
-        _id: quizClass.id,
-        class: quizClass.title
-      }
-
-      let gradeCount = -1;
-      let total = 0;
-
-      for(let grade of quizGrades) {
-        if(grade.class_id == quizClass._id && grade.completed > 0) {
-          if(gradeCount === -1) gradeCount = 0;
-
-          gradeCount += 1;
-          total += grade.average;
-        }
-      }
-
-      let average = 0;
-
-      if(gradeCount > 0 && total > 0) {
-        average = total / gradeCount;
-      }
-
-      classGrade.count = gradeCount;
-      classGrade.average = average;
-      classGrades.push(classGrade);
-    }
+    const classGrades = await Class.aggregate([
+      { $match: { instructor: ObjectId(instructor.id) }},
+      { $lookup: {
+          from: 'scheduledquizzes',
+          localField: '_id',
+          foreignField: 'class',
+          as: 'quizzes',
+      }},
+      { $addFields: {
+        average: { 
+          $map: {
+            input: '$quizzes',
+            as: 'quiz',
+            in: { $avg: '$$quiz.grades.grade' }
+      }}}},
+      {
+        $addFields: { count: { 
+          $filter: {
+            input: '$average',
+            as: 'val',
+            cond: { $ne: ['$$val', null]}
+      }}}},
+      { $project: {
+        title: 1,
+        average: { $avg: '$average'},
+        count: { $size: '$count'}
+    }}]);
     
     res.status(200).json(classGrades);
   } catch(err) {
