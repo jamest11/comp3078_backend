@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const expressJwt = require('express-jwt');
 const jwt = require('jsonwebtoken');
+const ObjectId = require('mongoose').Types.ObjectId;
 
 const User = require('../models/user');
 const Class = require('../models/class');
@@ -20,9 +21,9 @@ routes.get('/grades', async (req, res) => {
   try {
     const student = decodeToken(req.headers);
 
-    const studentId = mongoose.Types.ObjectId(student.id);
+    const studentId = ObjectId(student.id);
 
-    const gradeQuery = [
+    const grades = await ScheduledQuiz.aggregate([
       { $match: { grades: { $elemMatch: { student: { $eq: studentId }}}}}, 
       { $project: { 
         quiz: 1, 
@@ -33,10 +34,10 @@ routes.get('/grades', async (req, res) => {
             as: 'grade',
             cond: {
               $eq: ['$$grade.student', studentId] }}}}}, 
-      { $unset: ['grades._id','_id']}];
-
-    const grades = await ScheduledQuiz.aggregate(gradeQuery).sort('-grades.date');
-    
+      { $unset: ['grades._id','_id']}
+    ])
+    .sort('-grades.date');
+  
     await Quiz.populate(grades, { path: 'quiz', select: 'title -_id' })
     await Class.populate(grades, { path: 'class', select: 'title -_id' })
 
@@ -44,8 +45,8 @@ routes.get('/grades', async (req, res) => {
     const out = [];
     for(let grade of grades) {
       out.push({
-        class: grade.class.title,
-        quiz: grade.quiz.title,
+        classTitle: grade.class.title,
+        quizTitle: grade.quiz.title,
         grade: grade.grades[0].grade,
         date: grade.grades[0].date
       });
@@ -61,13 +62,40 @@ routes.get('/grades', async (req, res) => {
 routes.get('/quizzes', async (req, res) => {
   try {
     const student = decodeToken(req.headers);
+    const studentId = ObjectId(student.id);
 
-    const quizzes = await ScheduledQuiz
-      .find({ 'grades.student': { $ne: student.id }}, '-__v -grades')
-      .populate('class', 'title -_id', { students: { $in: student.id }})
-      .populate('quiz', '-questions.a -_id')
-      .sort('date')
-      .then((qs) => qs.filter((q) => q.class !== null));
+    const quizzes = await ScheduledQuiz.aggregate([
+      { $lookup: {
+        from: 'classes',
+        localField: 'class',
+        foreignField: '_id',
+        as: 'class',
+        pipeline: [{
+          $match: { students: studentId }
+        }]
+      }},
+      { $lookup: {
+        from: 'quizzes',
+        localField: 'quiz',
+        foreignField: '_id',
+        as: 'quiz'
+      }},  
+      { $unwind: '$quiz'}, 
+      { $unwind: '$class'},
+      { $match: { 
+        complete: false,
+        'grades.student': { $ne: studentId }
+      }},
+      { $project: {
+        quizTitle: '$quiz.title',
+        classTitle: '$class.title',
+        timeLimit: 1,
+        dueDate: 1,
+        questionCount: 1,
+        timeLimit: '$quiz.timeLimit',
+        questionCount: { $size: '$quiz.questions' }
+    }}])
+    .sort('dueDate')
 
     return res.status(200).json(quizzes);
   } catch(err) {
