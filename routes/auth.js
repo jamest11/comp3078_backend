@@ -36,22 +36,24 @@ routes.post('/login', async (req, res) => {
         } else {
             user = await User.findOne({ email });
         }
-    
-        const match = await bcrypt.compare(password, user.password);
 
-        if (user && match) {
-            const token =  jwt.sign({ id: user._id, userType: user.userType }, process.env.TOKEN_KEY, { expiresIn: '48h', });
-    
-            const response = {
-                jwt_token: token,
-                user: {
-                    id: user._id,
-                    userType: user.userType,
-                    email: user.email
-                }
-            };
+        if(user) {
+            const match = await bcrypt.compare(password, user.password);
 
-            return res.status(200).json(response);
+            if (match) {
+                const token =  jwt.sign({ id: user._id, userType: user.userType }, process.env.TOKEN_KEY, { expiresIn: '48h', });
+        
+                const response = {
+                    jwt_token: token,
+                    user: {
+                        id: user._id,
+                        userType: user.userType,
+                        email: user.email
+                    }
+                };
+
+                return res.status(200).json(response);
+            }
         } 
         return res.status(400).json({ errorCode: 102, message: 'Invalid email/password'});
 
