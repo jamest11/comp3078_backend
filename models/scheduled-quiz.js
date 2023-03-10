@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const scheduledQuizSchema = new mongoose.Schema({
-  date: {
+  dueDate: {
     type: Date,
     required: true
   },
