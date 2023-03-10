@@ -109,7 +109,7 @@ routes.get('/scheduled-quizzes', async (req, res) => {
         from: 'quizzes',
         localField: 'quiz',
         foreignField: '_id',
-        as: 'quizTitle',
+        as: 'quiz',
         pipeline: [{
           $match: { instructor: ObjectId(instructor.id) }
         }]
@@ -117,18 +117,19 @@ routes.get('/scheduled-quizzes', async (req, res) => {
         from: 'classes',
         localField: 'class',
         foreignField: '_id',
-        as: 'classTitle'
+        as: 'class'
       }}, 
-      { $unwind: '$quizTitle'}, 
-      { $unwind: '$classTitle'},
+      { $unwind: '$quiz'}, 
+      { $unwind: '$class'},
       { $match: filter},
       { $project: {
-        classTitle: '$classTitle.title',
-        quizTitle: '$quizTitle.title',
+        classTitle: '$class.title',
+        quizTitle: '$quiz.title',
         timeLimit: 1,
         complete: 1,
-        date: 1
-    }}]);
+        dueDate: 1
+    }}])
+    .sort('dueDate');
 
     return res.status(200).json(scheduledQuizzes);
   }  catch(err) {
@@ -146,6 +147,7 @@ routes.get('/quizzes', async (req, res) => {
       { $addFields: { questionCount: { $size: '$questions' }}}, 
       { $unset: 'questions' }
     ])
+    .sort('title');
 
     return res.status(200).json(quizzes);
   } catch(err) {
@@ -176,7 +178,7 @@ routes.get('/quiz-grades', async (req, res) => {
         from: 'quizzes',
         localField: 'quiz',
         foreignField: '_id',
-        as: 'quizTitle',
+        as: 'quiz',
         pipeline: [{
           $match: { instructor: ObjectId(instructor.id) }
         }]
@@ -184,22 +186,20 @@ routes.get('/quiz-grades', async (req, res) => {
         from: 'classes',
         localField: 'class',
         foreignField: '_id',
-        as: 'classTitle'
+        as: 'class'
       }}, 
-      { $unwind: '$quizTitle'}, 
-      { $unwind: '$classTitle'}, 
-      { $addFields: {
-        average: { $avg: '$grades.grade' }, 
-        completed: { $size: '$grades' }
-      }}, { $project: {
-        classTitle: '$classTitle.title',
-        quizTitle: '$quizTitle.title',
+      { $unwind: '$quiz'}, 
+      { $unwind: '$class'}, 
+      { $project: {
+        classTitle: '$class.title',
+        quizTitle: '$quiz.title',
+        average: { $avg: '$grades.grade' },
+        completed: { $size: '$grades' }, 
         timeLimit: 1,
         complete: 1,
-        average: 1,
-        completed: 1,
-        date: 1
-    }}]);
+        dueDate: 1
+    }}])
+    .sort('dueDate');
 
     return res.status(200).json(grades);
   } catch(err) {
