@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const User = require('../models/user');
+const ScheduledQuiz = require('../models/scheduled-quiz');
 
 const quizSchema = new mongoose.Schema({
   title: {
@@ -59,5 +60,12 @@ const quizSchema = new mongoose.Schema({
     }
   ]
 });
+
+quizSchema.post('findOneAndDelete', function(doc) {
+  if(doc !== null) {
+    ScheduledQuiz.deleteMany({ quiz: doc._id }).exec()
+  }
+});
+
 
 module.exports = mongoose.model('Quiz', quizSchema);

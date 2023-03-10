@@ -125,6 +125,8 @@ routes.get('/scheduled-quizzes', async (req, res) => {
       { $project: {
         classTitle: '$class.title',
         quizTitle: '$quiz.title',
+        quiz_id: '$quiz._id',
+        class_id: '$class._id',
         timeLimit: 1,
         complete: 1,
         dueDate: 1
@@ -147,6 +149,7 @@ routes.get('/quizzes', async (req, res) => {
       { $addFields: { questionCount: { $size: '$questions' }}}, 
       { $unset: 'questions' }
     ])
+    .collation({'locale':'en'})
     .sort('title');
 
     return res.status(200).json(quizzes);
@@ -245,5 +248,28 @@ routes.get('/class-grades', async (req, res) => {
     return res.status(500).json(err);
   }
 })
+
+routes.delete('/scheduled-quiz', async (req, res) => {
+  try {
+    const del = await ScheduledQuiz.deleteOne({ _id: req.body.id })
+
+    return res.status(200).json(del)
+  } catch(err) {
+    console.log(err);
+    return res.status(500).json(err);
+  }
+});
+
+routes.delete('/quiz', async (req, res) => {
+  try {
+    const del = await Quiz.findOneAndDelete({ _id: req.body.id })
+
+    return res.status(200).json(del)
+  } catch(err) {
+    console.log(err);
+    return res.status(500).json(err);
+  }
+
+});
 
 module.exports = routes;
