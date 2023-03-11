@@ -1,8 +1,6 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const expressJwt = require('express-jwt');
 const jwt = require('jsonwebtoken');
-const axios = require('axios');
 const ObjectId = require('mongoose').Types.ObjectId;
 
 const User = require('../models/user');
@@ -19,6 +17,15 @@ const decodeToken = (headers) => {
   return jwt.verify(token, process.env.TOKEN_KEY);
 };
 
+routes.get('/test', async (req, res) => {
+  try {
+    
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json(err);
+  }
+});
+
 routes.post('/create-class', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
@@ -29,7 +36,38 @@ routes.post('/create-class', async (req, res) => {
 
     return res.status(201).json(quizClass);
   } catch (err) {
-    return res.status(500).send(err);
+    console.log(err);
+    return res.status(500).json(err);
+  }
+});
+
+routes.post('/create-quiz', async(req, res) => {
+  try {
+    const instructor = decodeToken(req.headers);
+
+    const quiz = new Quiz({ ...req.body, instructor: instructor.id });
+
+    await quiz.save();
+
+    return res.status(201).send();
+  } catch(err) {
+    console.log(err);
+    return res.status(500).json(err);
+  }
+});
+
+routes.post('/schedule-quiz', async (req, res) => {
+  try {
+    const instructor = decodeToken(req.headers);
+
+    const scheduledQuiz = new ScheduledQuiz({ ...req.body, instructor: instructor.id });
+
+    await scheduledQuiz.save();
+
+    return res.status(200).json(scheduledQuiz);
+  } catch(err) {
+    console.log(err);
+    return res.status(500).json(err);
   }
 });
 
@@ -63,31 +101,23 @@ routes.patch('/update-class', async (req, res) => {
   }
 });
 
-routes.post('/create-quiz', async(req, res) => {
+routes.patch('/update-scheduled-quiz', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    await ScheduledQuiz.findByIdAndUpdate(req.body.id, { dueDate: req.body.dueDate });
 
-    const quiz = new Quiz({ ...req.body, instructor: instructor.id });
-
-    await quiz.save();
-
-    return res.status(200).send();
-  } catch(err) {
-    console.log(err)
+    return res.status(200).send()
+  } catch (err) {
+    console.log(err);
     return res.status(500).json(err);
   }
 });
 
-routes.post('/schedule-quiz', async (req, res) => {
+routes.patch('/update-quiz', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    await Quiz.findByIdAndUpdate(req.body.id, req.body.data);
 
-    const scheduledQuiz = new ScheduledQuiz({ ...req.body, instructor: instructor.id });
-
-    await scheduledQuiz.save();
-
-    return res.status(200).json(scheduledQuiz);
-  } catch(err) {
+    return res.status(200).send()
+  } catch (err) {
     console.log(err);
     return res.status(500).json(err);
   }
@@ -144,15 +174,52 @@ routes.get('/quizzes', async (req, res) => {
   try {
     const instructor = decodeToken(req.headers);
 
-    const quizzes = await Quiz.aggregate([
-      { $match: { instructor: ObjectId(instructor.id)} },
-      { $addFields: { questionCount: { $size: '$questions' }}}, 
-      { $unset: 'questions' }
-    ])
-    .collation({'locale':'en'})
-    .sort('title');
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+    const pagination = req.query.pagination === 'true';
 
-    return res.status(200).json(quizzes);
+    const agg = Quiz.aggregate([
+      { $match: { instructor: ObjectId(instructor.id)} },
+      { $addFields: { 
+        questionCount: { $size: '$questions' },
+        lowerTitle: { $toLower: '$title' }
+      }},
+      { $sort: { lowerTitle: 1 }}, 
+      { $unset: ['questions', 'lowerTitle'] }
+    ]);
+
+    if(pagination && page && limit) {
+      const options = {
+        page,
+        limit,
+      }
+  
+      const quizzes = await Quiz.aggregatePaginate(agg, options);
+
+      return res.status(200).json(quizzes);
+    }
+    else {
+      const quizzes = await agg.exec();
+
+      return res.status(200).json(quizzes);
+    }
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json(err);
+  }
+});
+
+routes.get('/quiz', async (req, res) => {
+  try {
+    const id = req.query.id;
+    
+    if(!id) {
+      return res.status(400).send()
+    }
+
+    const quiz = await Quiz.findById(id);
+
+    return res.status(200).json(quiz);
   } catch(err) {
     console.log(err);
     return res.status(500).json(err);
