@@ -20,7 +20,6 @@ const decodeToken = (headers) => {
 routes.get('/grades', async (req, res) => {
   try {
     const student = decodeToken(req.headers);
-
     const studentId = ObjectId(student.id);
 
     const grades = await ScheduledQuiz.aggregate([
@@ -58,6 +57,47 @@ routes.get('/grades', async (req, res) => {
     return res.status(500).json(err);
   }
 });
+
+routes.get('/class-grades', async (req, res) => {
+  try {
+    const student = decodeToken(req.headers);
+    const studentId = ObjectId(student.id);
+
+    const grades = await ScheduledQuiz.aggregate([
+      { $match: { 'grades.student': studentId }},
+      { $project: {
+        quiz: 1,
+        class: 1,
+        date: 1,
+        grades: {
+          $filter: {
+            input: '$grades',
+            as: 'grade',
+            cond: { $eq: ['$$grade.student', ObjectId('63f7fb0745abb175bb5ec197')]}
+      }}}}, { $unwind: '$grades' },
+      { $project: { quiz: 1, class: 1, date: '$grades.date', grade: '$grades.grade'}},
+      { $group: {
+          _id: '$class',
+          average: { $avg: '$grade' },
+          scores: {
+            $push: {
+              'grade': '$grade',
+              'date': '$date'
+      }}}}, { $lookup: {
+        from: 'classes',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'class'
+      }},
+      { $unwind: '$class' },
+      { $project: { classTitle: '$class.title', average: 1, scores: 1, _id: 0 }}
+    ]);
+
+    res.status(200).json(grades);
+  } catch(err) {
+
+  }
+})
 
 routes.get('/quizzes', async (req, res) => {
   try {
