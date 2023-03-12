@@ -17,13 +17,13 @@ const decodeToken = (headers) => {
   return jwt.verify(token, process.env.TOKEN_KEY);
 };
 
-routes.get('/grades', async (req, res) => {
+routes.get('/quiz-grades', async (req, res) => {
   try {
     const student = decodeToken(req.headers);
     const studentId = ObjectId(student.id);
 
-    const grades = await ScheduledQuiz.aggregate([
-      { $match: { grades: { $elemMatch: { student: { $eq: studentId }}}}}, 
+    const grades = await ScheduledQuiz.aggregate([    
+      { $match: { 'grades.student': studentId }},
       { $project: { 
         quiz: 1, 
         class: 1, 
@@ -32,26 +32,30 @@ routes.get('/grades', async (req, res) => {
             input: '$grades',
             as: 'grade',
             cond: {
-              $eq: ['$$grade.student', studentId] }}}}}, 
-      { $unset: ['grades._id','_id']}
-    ])
-    .sort('-grades.date');
-  
-    await Quiz.populate(grades, { path: 'quiz', select: 'title -_id' })
-    await Class.populate(grades, { path: 'class', select: 'title -_id' })
+              $eq: ['$$grade.student', studentId] }
+      }}}}, { $lookup: {
+        from: 'quizzes',
+        localField: 'quiz',
+        foreignField: '_id',
+        as: 'quiz',
+      }}, { $lookup: {
+        from: 'classes',
+        localField: 'class',
+        foreignField: '_id',
+        as: 'class'
+      }}, 
+      { $unwind: '$quiz'}, 
+      { $unwind: '$class'},
+      { $unwind: '$grades' }, 
+      { $project: {
+        grade: '$grades.grade',
+        classTitle: '$class.title',
+        quizTitle: '$quiz.title',
+        date: '$grades.date'
+    }}])
+    .sort('-date');
 
-
-    const out = [];
-    for(let grade of grades) {
-      out.push({
-        classTitle: grade.class.title,
-        quizTitle: grade.quiz.title,
-        grade: grade.grades[0].grade,
-        date: grade.grades[0].date
-      });
-    };
-
-    return res.status(200).json(out);
+    return res.status(200).json(grades);
   } catch(err) {
     console.log(err);
     return res.status(500).json(err);
@@ -73,7 +77,7 @@ routes.get('/class-grades', async (req, res) => {
           $filter: {
             input: '$grades',
             as: 'grade',
-            cond: { $eq: ['$$grade.student', ObjectId('63f7fb0745abb175bb5ec197')]}
+            cond: { $eq: ['$$grade.student', studentId] }
       }}}}, { $unwind: '$grades' },
       { $project: { quiz: 1, class: 1, date: '$grades.date', grade: '$grades.grade'}},
       { $group: {
@@ -91,7 +95,8 @@ routes.get('/class-grades', async (req, res) => {
       }},
       { $unwind: '$class' },
       { $project: { classTitle: '$class.title', average: 1, scores: 1, _id: 0 }}
-    ]);
+    ])
+    .sort('title');
 
     res.status(200).json(grades);
   } catch(err) {
@@ -160,16 +165,21 @@ routes.get('/quiz', async (req, res) => {
 routes.post('/submit-quiz', async (req, res) => {
   try {
     const student = decodeToken(req.headers);
+    const responses = req.body.responses;
 
     const sq = await ScheduledQuiz.findById(req.body.id)
       .populate('quiz', '-questions._id -instructor -__v');
     
+    const questions = sq.quiz.questions;
+    const details = new Array(questions.length).fill(false);
+
     let correct = 0;
     let total = sq.quiz.questions.length;
 
-    for(let i = 0; i < req.body.responses.length; i++) {
-      if(req.body.responses[i] === sq.quiz.questions[i].a) {
+    for(let i = 0; i < responses.length; i++) {
+      if(responses[i] === questions[i].a) {
         correct += 1;
+        details[i] = true;
       }
     }
 
@@ -179,7 +189,14 @@ routes.post('/submit-quiz', async (req, res) => {
       { '_id': req.body.id }, 
       { '$push': { 'grades': { student: student.id, grade: grade } }})
 
-    return res.status(200).json({ correct: correct, total: total })
+    const response = { 
+      correct, 
+      total,
+      grade,
+      details
+    };
+
+    return res.status(200).json(response)
   } catch(err) {
     console.log(err);
     return res.status(500).json(err);
