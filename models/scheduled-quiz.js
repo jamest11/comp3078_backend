@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const dayjs = require('dayjs');
 const { Schema } = mongoose;
 
 const scheduledQuizSchema = new mongoose.Schema({
@@ -33,7 +34,7 @@ const scheduledQuizSchema = new mongoose.Schema({
       },
       date: {
         type: Date,
-        default: Date.now()
+        default: dayjs().toDate()
       }
     }
   ]
