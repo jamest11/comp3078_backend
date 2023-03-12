@@ -185,9 +185,9 @@ routes.post('/submit-quiz', async (req, res) => {
 
     const grade = (correct / total * 100).toFixed(1);
 
-    await ScheduledQuiz.updateOne(
-      { '_id': req.body.id }, 
-      { '$push': { 'grades': { student: student.id, grade: grade } }})
+    //await ScheduledQuiz.updateOne(
+    //  { '_id': req.body.id }, 
+    //  { '$push': { 'grades': { student: student.id, grade: grade } }})
 
     const response = { 
       correct, 
@@ -195,6 +195,8 @@ routes.post('/submit-quiz', async (req, res) => {
       grade,
       details
     };
+
+    console.log(response);
 
     return res.status(200).json(response)
   } catch(err) {

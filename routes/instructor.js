@@ -157,9 +157,12 @@ routes.get('/scheduled-quizzes', async (req, res) => {
         quizTitle: '$quiz.title',
         quiz_id: '$quiz._id',
         class_id: '$class._id',
+        numComplete: { $size: '$grades' },
+        numStudents: { $size: '$class.students' },
         timeLimit: 1,
         complete: 1,
-        dueDate: 1
+        dueDate: 1,
+
     }}])
     .sort('dueDate');
 
@@ -264,7 +267,8 @@ routes.get('/quiz-grades', async (req, res) => {
         classTitle: '$class.title',
         quizTitle: '$quiz.title',
         average: { $avg: '$grades.grade' },
-        completed: { $size: '$grades' }, 
+        numComplete: { $size: '$grades' },
+        numStudents: { $size: '$class.students' }, 
         timeLimit: 1,
         complete: 1,
         dueDate: 1
@@ -304,10 +308,11 @@ routes.get('/class-grades', async (req, res) => {
             cond: { $ne: ['$$val', null]}
       }}}},
       { $project: {
-        title: 1,
+        classTitle: '$title',
         average: { $avg: '$average'},
         count: { $size: '$count'}
-    }}]);
+    }}])
+    .sort('classTitle');
     
     res.status(200).json(classGrades);
   } catch(err) {
