@@ -14,7 +14,7 @@ mongoose.set('strictQuery', false);
 mongoose.connect(process.env.DB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    dbName: 'capstone'
+    dbName: 'quiztionnaire'
 }).then(() => {
     console.log('Successfully connected to the database mongoDB Atlas Server');    
 }).catch(err => {
