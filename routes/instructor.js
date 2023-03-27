@@ -10,7 +10,22 @@ const ScheduledQuiz = require('../models/scheduled-quiz');
 
 const routes = express.Router()
 
-//routes.use(expressJwt.expressjwt({ secret: process.env.TOKEN_KEY, algorithms: ['HS256'] }));
+routes.use(expressJwt.expressjwt({ secret: process.env.TOKEN_KEY, algorithms: ['HS256'] },),
+  (err, req, res, next) => {
+    if (err.name === 'UnauthorizedError') {
+      res.status(401).send('invalid token');
+    } else {
+      next(err);
+    }
+});
+
+routes.use((req, res, next) => {
+  if(req.auth.userType !== 'instructor') {
+    res.status(403).send();
+  } else {
+    next();
+  }
+});
 
 const decodeToken = (headers) => {
   const token = headers.authorization.split(' ')[1];
@@ -28,7 +43,7 @@ routes.get('/test', async (req, res) => {
 
 routes.post('/create-class', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
 
     const quizClass = new Class({ ...req.body, instructor: instructor.id });
 
@@ -43,7 +58,7 @@ routes.post('/create-class', async (req, res) => {
 
 routes.post('/create-quiz', async(req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
 
     const quiz = new Quiz({ ...req.body, instructor: instructor.id });
 
@@ -58,7 +73,7 @@ routes.post('/create-quiz', async(req, res) => {
 
 routes.post('/schedule-quiz', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
 
     const scheduledQuiz = new ScheduledQuiz({ ...req.body, instructor: instructor.id });
 
@@ -132,7 +147,7 @@ routes.get('/scheduled-quizzes', async (req, res) => {
   }
 
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
 
     const scheduledQuizzes = await ScheduledQuiz.aggregate([
       { $lookup: {
@@ -175,7 +190,7 @@ routes.get('/scheduled-quizzes', async (req, res) => {
 
 routes.get('/quizzes', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
 
     const page = parseInt(req.query.page, 10);
     const limit = parseInt(req.query.limit, 10);
@@ -231,7 +246,7 @@ routes.get('/quiz', async (req, res) => {
 
 routes.get('/classes', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
 
     const classes = await Class.find({ instructor: instructor.id }).sort('title');
 
@@ -244,7 +259,7 @@ routes.get('/classes', async (req, res) => {
 
 routes.get('/quiz-grades', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
     
     const grades = await ScheduledQuiz.aggregate([
       { $lookup: {
@@ -284,7 +299,7 @@ routes.get('/quiz-grades', async (req, res) => {
 
 routes.get('/class-grades', async (req, res) => {
   try {
-    const instructor = decodeToken(req.headers);
+    const instructor = req.auth;
 
     const classGrades = await Class.aggregate([
       { $match: { instructor: ObjectId(instructor.id) }},

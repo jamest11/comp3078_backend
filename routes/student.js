@@ -10,16 +10,26 @@ const ScheduledQuiz = require('../models/scheduled-quiz');
 const Quiz = require('../models/quiz');
 const routes = express.Router()
 
-//routes.use(expressJwt.expressjwt({ secret: process.env.TOKEN_KEY, algorithms: ['HS256'] }));
+routes.use(expressJwt.expressjwt({ secret: process.env.TOKEN_KEY, algorithms: ['HS256'] },),
+  (err, req, res, next) => {
+    if (err.name === 'UnauthorizedError') {
+      res.status(401).send('invalid token');
+    } else {
+      next(err);
+    }
+});
 
-const decodeToken = (headers) => {
-  const token = headers.authorization.split(' ')[1];
-  return jwt.verify(token, process.env.TOKEN_KEY);
-};
+routes.use((req, res, next) => {
+  if(req.auth.userType !== 'student') {
+    res.status(403).send();
+  } else {
+    next();
+  }
+});
 
 routes.get('/quiz-grades', async (req, res) => {
   try {
-    const student = decodeToken(req.headers);
+    const student = req.auth;
     const studentId = ObjectId(student.id);
 
     const grades = await ScheduledQuiz.aggregate([    
@@ -64,7 +74,7 @@ routes.get('/quiz-grades', async (req, res) => {
 
 routes.get('/class-grades', async (req, res) => {
   try {
-    const student = decodeToken(req.headers);
+    const student = req.auth;
     const studentId = ObjectId(student.id);
 
     const grades = await ScheduledQuiz.aggregate([
@@ -106,7 +116,7 @@ routes.get('/class-grades', async (req, res) => {
 
 routes.get('/quizzes', async (req, res) => {
   try {
-    const student = decodeToken(req.headers);
+    const student = req.auth;
     const studentId = ObjectId(student.id);
 
     const quizzes = await ScheduledQuiz.aggregate([
@@ -164,7 +174,7 @@ routes.get('/quiz', async (req, res) => {
 
 routes.post('/submit-quiz', async (req, res) => {
   try {
-    const student = decodeToken(req.headers);
+    const student = req.auth;
     const responses = req.body.responses;
 
     const sq = await ScheduledQuiz.findById(req.body.id)
@@ -185,9 +195,9 @@ routes.post('/submit-quiz', async (req, res) => {
 
     const grade = (correct / total * 100).toFixed(1);
 
-    //await ScheduledQuiz.updateOne(
-    //  { '_id': req.body.id }, 
-    //  { '$push': { 'grades': { student: student.id, grade: grade } }})
+    await ScheduledQuiz.updateOne(
+      { '_id': req.body.id }, 
+      { '$push': { 'grades': { student: student.id, grade: grade } }})
 
     const response = { 
       correct, 
