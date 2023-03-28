@@ -36,28 +36,10 @@ const quizSchema = new mongoose.Schema({
         type: String,
         required: true
       },
-      r1: {
-        type: String,
-        required: true
-      },
-      r2: {
-        type: String,
-        required: true
-      },
-      r3: {
-        type: String,
-        required: true
-      },
-      r4: {
-        type: String,
-        required: true
-      },
+      r: [String],
       a: {
-        type: String,
+        type: Number,
         required: true,
-        enum: {
-          values: ['r1', 'r2', 'r3', 'r4']
-        }
       }
     }
   ]

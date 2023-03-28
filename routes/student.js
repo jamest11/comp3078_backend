@@ -206,8 +206,6 @@ routes.post('/submit-quiz', async (req, res) => {
       details
     };
 
-    console.log(response);
-
     return res.status(200).json(response)
   } catch(err) {
     console.log(err);
