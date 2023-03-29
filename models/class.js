@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const User = require('../models/user');
+const ScheduledQuiz = require('../models/scheduled-quiz');
 const { Schema } = mongoose;
 
 
@@ -43,6 +44,12 @@ const classSchema = new mongoose.Schema({
       message: 'Invalid user type'
     }
   }]
+});
+
+classSchema.post('findOneAndDelete', function(doc) {
+  if(doc !== null) {
+    ScheduledQuiz.deleteMany({ class: doc._id }).exec()
+  }
 });
 
 module.exports = mongoose.model('Class', classSchema);
