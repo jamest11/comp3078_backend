@@ -7,6 +7,7 @@ const User = require('../models/user');
 const Class = require('../models/class');
 const Quiz = require('../models/quiz');
 const ScheduledQuiz = require('../models/scheduled-quiz');
+const quiz = require('../models/quiz');
 
 const routes = express.Router()
 
@@ -27,11 +28,6 @@ routes.use((req, res, next) => {
   }
 });
 
-const decodeToken = (headers) => {
-  const token = headers.authorization.split(' ')[1];
-  return jwt.verify(token, process.env.TOKEN_KEY);
-};
-
 routes.get('/test', async (req, res) => {
   try {
     
@@ -45,7 +41,15 @@ routes.post('/create-class', async (req, res) => {
   try {
     const instructor = req.auth;
 
-    const quizClass = new Class({ ...req.body, instructor: instructor.id });
+    const studentIds = await User.distinct(
+      '_id', 
+      { email: { $in: req.body.students}, userType: 'student' });
+
+    const quizClass = new Class({ 
+      title: req.body.title, 
+      instructor: instructor.id,
+      students: studentIds
+    });
 
     await quizClass.save();
 
@@ -79,7 +83,7 @@ routes.post('/schedule-quiz', async (req, res) => {
 
     await scheduledQuiz.save();
 
-    return res.status(200).json(scheduledQuiz);
+    return res.status(201).json(scheduledQuiz);
   } catch(err) {
     console.log(err);
     return res.status(500).json(err);
@@ -89,22 +93,41 @@ routes.post('/schedule-quiz', async (req, res) => {
 routes.patch('/update-class', async (req, res) => {
   try {
     const classId = ObjectId(req.body.class)
+    const delStudentIds = req.body.delStudents.map((id) => ObjectId(id));
 
-    const students = await User.distinct(
+    const newStudentIds = await User.distinct(
       '_id', 
-      { email: { $in: req.body.students}, userType: 'student' });
+      { email: { $in: req.body.newStudents}, userType: 'student' });
 
     const oldClass = await Class.findByIdAndUpdate(classId, { 
-        $addToSet: { 
-          students: { 
-            $each: students
+      $addToSet: { 
+        students: { 
+          $each: newStudentIds
       }}}
     );
 
     const updatedClass = await Class.findById(classId);
+
+    const newCount = updatedClass.students.length - oldClass.students.length;
     
+    await Class.findByIdAndUpdate(classId, {
+      $pull: {
+        students: {
+          $in: delStudentIds
+        }
+      }
+    })
+
+    await ScheduledQuiz.updateMany({ class: classId }, {
+      $pull: {
+        grades: {
+          student: { $in: delStudentIds }
+        }
+      }
+    })
+
     const response = {
-      count: updatedClass.students.length - oldClass.students.length,
+      count: newCount,
       class: updatedClass.title,
       id: updatedClass._id
     };
@@ -248,7 +271,9 @@ routes.get('/classes', async (req, res) => {
   try {
     const instructor = req.auth;
 
-    const classes = await Class.find({ instructor: instructor.id }).sort('title');
+    const classes = await Class.find({ instructor: instructor.id })
+      .populate('students', 'email')
+      .sort('title');
 
     return res.status(200).json(classes);
   } catch(err) {
@@ -300,6 +325,7 @@ routes.get('/quiz-grades', async (req, res) => {
 routes.get('/class-grades', async (req, res) => {
   try {
     const instructor = req.auth;
+    const exportFilter = req.query.export;
 
     const classGrades = await Class.aggregate([
       { $match: { instructor: ObjectId(instructor.id) }},
@@ -336,6 +362,68 @@ routes.get('/class-grades', async (req, res) => {
   }
 })
 
+routes.get('/class-grades-export', async (req, res) => {
+  if(req.query.id && ObjectId.isValid(req.query.id)) {
+    try {
+      const classId = ObjectId(req.query.id);
+
+      const qClass = await Class.findById(classId, 'title').lean()
+
+      const grades = await ScheduledQuiz.aggregate([    
+        { $match: { class: classId }},
+        { $lookup: {
+          from: 'quizzes',
+          localField: 'quiz',
+          foreignField: '_id',
+          as: 'quiz',
+        }}, 
+        { $unwind: '$quiz'}, 
+        { $unwind: '$grades' },
+        { $sort: { 'grades.date': -1 }},
+        { $project: {
+          student: '$grades.student',
+          grade: '$grades.grade',
+          quizTitle: '$quiz.title',
+          date: '$grades.date'
+        }},
+        { $group: {
+            _id: '$student',
+            grades: { $push: '$$ROOT' }
+        }},
+        { $project: {
+          'grades.quizTitle': 1,
+          'grades.grade': 1,
+          'grades.date': 1
+        }},
+        { $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'student'
+        }},
+        { $unwind: '$student' },
+        { $sort: { 'student.lastName': 1 }},
+        { $project: {
+          name: { $concat: ['$student.firstName', ' ', '$student.lastName']},
+          email: '$student.email',
+          grades: 1,
+          _id: 0
+        }}
+      ]);
+
+      return res.status(200).json({
+        title: qClass.title,
+        studentGrades: grades
+      })
+      
+    } catch(err) {
+      console.log(err);
+      return res.status(500).json(err);
+    }
+  }
+  return res.status(400).send()
+});
+
 routes.delete('/scheduled-quiz', async (req, res) => {
   try {
     const del = await ScheduledQuiz.deleteOne({ _id: req.body.id })
@@ -356,7 +444,17 @@ routes.delete('/quiz', async (req, res) => {
     console.log(err);
     return res.status(500).json(err);
   }
-
 });
+
+routes.delete('/class', async (req, res) => {
+  try {
+    const del = await Class.findOneAndDelete({ _id: req.body.id })
+
+    return res.status(200).json(del);
+  } catch(err) {
+    console.log(err);
+    return res.status(500).json(err);
+  }
+})
 
 module.exports = routes;
