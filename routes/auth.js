@@ -41,7 +41,7 @@ routes.post('/login', async (req, res) => {
             const match = await bcrypt.compare(password, user.password);
 
             if (match) {
-                const token =  jwt.sign({ id: user._id, userType: user.userType }, process.env.TOKEN_KEY, { expiresIn: '48h', });
+                const token =  jwt.sign({ id: user._id, userType: user.userType }, process.env.TOKEN_KEY, { expiresIn: '120h', });
         
                 const response = {
                     jwt_token: token,
