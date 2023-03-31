@@ -215,11 +215,7 @@ routes.get('/quizzes', async (req, res) => {
   try {
     const instructor = req.auth;
 
-    const page = parseInt(req.query.page, 10);
-    const limit = parseInt(req.query.limit, 10);
-    const pagination = req.query.pagination === 'true';
-
-    const agg = Quiz.aggregate([
+    const quizzes = await Quiz.aggregate([
       { $match: { instructor: ObjectId(instructor.id)} },
       { $addFields: { 
         questionCount: { $size: '$questions' },
@@ -229,21 +225,8 @@ routes.get('/quizzes', async (req, res) => {
       { $unset: ['questions', 'lowerTitle'] }
     ]);
 
-    if(pagination && page && limit) {
-      const options = {
-        page,
-        limit,
-      }
-  
-      const quizzes = await Quiz.aggregatePaginate(agg, options);
+    return res.status(200).json(quizzes);
 
-      return res.status(200).json(quizzes);
-    }
-    else {
-      const quizzes = await agg.exec();
-
-      return res.status(200).json(quizzes);
-    }
   } catch (err) {
     console.log(err);
     return res.status(500).json(err);

@@ -1,6 +1,4 @@
 const mongoose = require('mongoose');
-const mongoosePaginate = require('mongoose-paginate-v2');
-const aggregatePaginate = require("mongoose-aggregate-paginate-v2");
 const { Schema } = mongoose;
 
 const User = require('../models/user');
@@ -44,9 +42,6 @@ const quizSchema = new mongoose.Schema({
     }
   ]
 });
-
-quizSchema.plugin(mongoosePaginate);
-quizSchema.plugin(aggregatePaginate);
 
 quizSchema.post('findOneAndDelete', function(doc) {
   if(doc !== null) {
