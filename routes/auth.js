@@ -59,8 +59,8 @@ routes.post('/register', async (req, res) => {
         const userJSON = user.toJSON();
         delete userJSON._id;
 
-        const token = jwt.sign(userJSON, process.env.TOKEN_KEY, { expiresIn: '24h', })
-        const url = process.env.ENVIRONMENT === 'dev' ? `http://localhost:3000/verify/${token}` : `https://quiztionnaire.tech/verify/${token}`
+        const token = jwt.sign(userJSON, process.env.TOKEN_KEY, { expiresIn: '24h', });
+        const url = `https://quiztionnaire.tech/verify/${token}`;
 
         const transporter = nodemailer.createTransport({
             service: 'Zoho',
@@ -72,7 +72,7 @@ routes.post('/register', async (req, res) => {
 
         await transporter.sendMail({
             from: process.env.EMAIL_USER,
-            to: 'jameswtory@gmail.com',
+            to: user.email,
             subject: 'Quiztionnaire - Verify Account',
             text: `Use this link to verify your Quiztionnaire account: ${url}`,
             html: `<p>Click <a href="${url}" target="_blank">here</a> to verify your Quiztionnaire account.</p>`
