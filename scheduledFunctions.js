@@ -8,7 +8,7 @@ const completeOverdueQuizzes = async () => {
     console.log('Completing overdue quizzes...')
     const today = dayjs().startOf('day');
 
-    const sq = await ScheduledQuiz.find({ date: { $lt: today.toDate() }, complete: false }).populate('class');
+    const sq = await ScheduledQuiz.find({ dueDate: { $lt: today.toDate() }, complete: false }).populate('class');
     
     for(let quiz of sq) {
       const classStudents = quiz.class.students;
