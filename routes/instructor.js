@@ -105,8 +105,11 @@ routes.patch('/update-class', async (req, res) => {
           $each: newStudentIds
       }}}
     );
-
     const updatedClass = await Class.findById(classId);
+
+    if(updatedClass.title !== req.body.title) {
+      await Class.findByIdAndUpdate(classId, { title: req.body.title })
+    }
 
     const newCount = updatedClass.students.length - oldClass.students.length;
     
@@ -308,7 +311,6 @@ routes.get('/quiz-grades', async (req, res) => {
 routes.get('/class-grades', async (req, res) => {
   try {
     const instructor = req.auth;
-    const exportFilter = req.query.export;
 
     const classGrades = await Class.aggregate([
       { $match: { instructor: ObjectId(instructor.id) }},

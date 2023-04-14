@@ -65,6 +65,17 @@ routes.get('/quiz-grades', async (req, res) => {
     }}])
     .sort('-date');
 
+    if(req.query.summary && req.query.summary == 'true') {
+      let total = 0;
+      let count = Math.min(grades.length, 5);
+      for(let i = 0; i < count; i++) {
+        total += grades[i].grade;
+      }
+      
+      return res.status(200).json({ avg: total / count, count })
+    }
+    console.log(grades.length);
+
     return res.status(200).json(grades);
   } catch(err) {
     console.log(err);
