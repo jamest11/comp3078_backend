@@ -7,7 +7,6 @@ const User = require('../models/user');
 const Class = require('../models/class');
 const Quiz = require('../models/quiz');
 const ScheduledQuiz = require('../models/scheduled-quiz');
-const quiz = require('../models/quiz');
 
 const routes = express.Router()
 
@@ -25,15 +24,6 @@ routes.use((req, res, next) => {
     res.status(403).send();
   } else {
     next();
-  }
-});
-
-routes.get('/test', async (req, res) => {
-  try {
-    
-  } catch (err) {
-    console.log(err);
-    return res.status(500).json(err);
   }
 });
 
